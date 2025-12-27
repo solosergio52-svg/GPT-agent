@@ -3,12 +3,14 @@ import csv
 import io
 from typing import List, Dict, Any
 
-import httpx
 from fastapi import FastAPI
+import httpx
 
-app = FastAPI(title="Buildeco Parser Service", version="0.1.2")
+app = FastAPI(title="Buildeco Parser Service", version="0.2.0")
 
 REGISTRY: List[Dict[str, Any]] = []
+
+YANDEX_API = "https://cloud-api.yandex.net/v1/disk"
 
 
 def _env(name: str) -> str:
@@ -44,6 +46,50 @@ async def load_registry() -> List[Dict[str, Any]]:
     return items
 
 
+async def yadisk_request(method: str, path: str, params=None) -> Dict[str, Any]:
+    headers = {"Authorization": f"OAuth {_env('YANDEX_DISK_TOKEN')}"}
+    async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+        r = await client.request(
+            method=method,
+            url=f"{YANDEX_API}{path}",
+            headers=headers,
+            params=params,
+        )
+    r.raise_for_status()
+    return r.json()
+
+
+async def list_files_by_public_url(folder_url: str) -> List[Dict[str, Any]]:
+    # Для Яндекс.Диска public_key может быть самой ссылкой.
+    public_key = folder_url.strip()
+
+    data = await yadisk_request(
+        "GET",
+        "/public/resources",
+        params={
+            "public_key": public_key,
+            "limit": 1000,
+        },
+    )
+
+    items = data.get("_embedded", {}).get("items", [])
+    files: List[Dict[str, Any]] = []
+    for i in items:
+        if i.get("type") != "file":
+            continue
+        files.append(
+            {
+                "name": i.get("name"),
+                "type": i.get("type"),
+                "path": i.get("path"),
+                "modified": i.get("modified"),
+                "size": i.get("size"),
+                "mime_type": i.get("mime_type"),
+            }
+        )
+    return files
+
+
 @app.on_event("startup")
 async def startup():
     global REGISTRY
@@ -65,3 +111,13 @@ async def reload_registry():
     global REGISTRY
     REGISTRY = await load_registry()
     return {"ok": True, "objects": len(REGISTRY)}
+
+
+@app.get("/objects/{object_name}/files")
+async def get_object_files(object_name: str):
+    obj = next((o for o in REGISTRY if o["object_name"] == object_name), None)
+    if not obj:
+        return {"error": "object not found", "object_name": object_name}
+
+    files = await list_files_by_public_url(obj["folder_url"])
+    return {"object_name": object_name, "files": files}
