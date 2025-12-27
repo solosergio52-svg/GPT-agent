@@ -188,3 +188,55 @@ async def get_file_text(object_name: str, name: str):
         "file_name": name,
         "text": text[:10000]  # ограничим вывод
     }
+import re
+
+def classify_text(text: str) -> Dict[str, Any]:
+    """Простая эвристическая классификация письма"""
+    t = text.lower()
+    direction = "входящее" if "вх" in t or "уведомление" in t else "исходящее"
+    topic = None
+    if any(k in t for k in ["аванс", "оплата", "счет", "к оплате"]):
+        topic = "финансы"
+    elif any(k in t for k in ["готовность", "строеготовность", "работы", "график"]):
+        topic = "ход работ"
+    elif any(k in t for k in ["замечания", "акт", "претензия", "дефект"]):
+        topic = "замечания/качество"
+    elif any(k in t for k in ["согласование", "утверждение", "техно"]):
+        topic = "согласование"
+    else:
+        topic = "прочее"
+
+    risk = any(k in t for k in ["не можем", "невозможно", "срыв", "штраф", "расторжение"])
+
+    return {"direction": direction, "topic": topic, "risk": bool(risk)}
+
+
+@app.get("/objects/{object_name}/analyze")
+async def analyze_file(object_name: str, name: str):
+    obj = next((o for o in REGISTRY if o["object_name"] == object_name), None)
+    if not obj:
+        return {"error": "object not found", "object_name": object_name}
+
+    folder_url = obj["folder_url"]
+    files = await list_files_by_public_url(folder_url)
+    file = next((f for f in files if f["name"] == name), None)
+    if not file:
+        return {"error": "file not found", "name": name}
+
+    content = await download_file_from_public(folder_url, file["path"])
+
+    text = ""
+    if name.lower().endswith(".pdf"):
+        text = extract_text_from_pdf(content)
+    elif name.lower().endswith(".docx"):
+        text = extract_text_from_docx(content)
+    else:
+        return {"error": "unsupported file type"}
+
+    info = classify_text(text)
+    return {
+        "object_name": object_name,
+        "file_name": name,
+        "analysis": info,
+        "preview": text[:800]
+    }
