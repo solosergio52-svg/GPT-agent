@@ -121,3 +121,77 @@ async def get_object_files(object_name: str):
 
     files = await list_files_by_public_url(obj["folder_url"])
     return {"object_name": object_name, "files": files}
+from pathlib import Path
+from PyPDF2 import PdfReader
+import docx
+
+async def download_file_from_public(folder_url: str, file_path: str) -> bytes:
+    """
+    Скачивает файл из публичной папки Яндекс.Диска по пути
+    """
+    public_key = folder_url.strip()
+    params = {"public_key": public_key, "path": file_path}
+
+    async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
+        r = await client.get(
+            f"{YANDEX_API}/public/resources/download",
+            params=params
+        )
+    r.raise_for_status()
+    href = r.json().get("href")
+    if not href:
+        raise RuntimeError("Download link not found")
+
+    async with httpx.AsyncClient(timeout=120) as client:
+        file_response = await client.get(href)
+    file_response.raise_for_status()
+    return file_response.content
+
+
+def extract_text_from_pdf(content: bytes) -> str:
+    temp_path = "/tmp/temp.pdf"
+    with open(temp_path, "wb") as f:
+        f.write(content)
+    text = ""
+    with open(temp_path, "rb") as f:
+        reader = PdfReader(f)
+        for page in reader.pages:
+            text += page.extract_text() or ""
+    return text
+
+
+def extract_text_from_docx(content: bytes) -> str:
+    temp_path = "/tmp/temp.docx"
+    with open(temp_path, "wb") as f:
+        f.write(content)
+    doc = docx.Document(temp_path)
+    return "\n".join(p.text for p in doc.paragraphs)
+
+
+@app.get("/objects/{object_name}/filetext")
+async def get_file_text(object_name: str, name: str):
+    obj = next((o for o in REGISTRY if o["object_name"] == object_name), None)
+    if not obj:
+        return {"error": "object not found", "object_name": object_name}
+
+    folder_url = obj["folder_url"]
+    files = await list_files_by_public_url(folder_url)
+    file = next((f for f in files if f["name"] == name), None)
+    if not file:
+        return {"error": "file not found", "name": name}
+
+    content = await download_file_from_public(folder_url, file["path"])
+
+    text = ""
+    if name.lower().endswith(".pdf"):
+        text = extract_text_from_pdf(content)
+    elif name.lower().endswith(".docx"):
+        text = extract_text_from_docx(content)
+    else:
+        return {"error": "unsupported file type"}
+
+    return {
+        "object_name": object_name,
+        "file_name": name,
+        "text": text[:10000]  # ограничим вывод
+    }
