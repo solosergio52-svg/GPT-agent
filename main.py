@@ -2,20 +2,19 @@ import os
 import csv
 import io
 from typing import List, Dict, Any
-from pathlib import Path
 
 import httpx
 from fastapi import FastAPI
 from PyPDF2 import PdfReader
 import docx
 
-app = FastAPI(title="Buildeco Correspondence API", version="1.0.0")
+app = FastAPI(title="Buildeco Correspondence API", version="1.1.0")
 
 REGISTRY: List[Dict[str, Any]] = []
 YANDEX_API = "https://cloud-api.yandex.net/v1/disk"
 
 
-# --- утилиты ---
+# === Утилиты ===
 def _env(name: str) -> str:
     v = os.getenv(name)
     if not v:
@@ -23,21 +22,19 @@ def _env(name: str) -> str:
     return v
 
 
-# --- загрузка CSV-реестра ---
+# === Загрузка CSV реестра ===
 async def load_registry() -> List[Dict[str, Any]]:
     url = _env("OBJECTS_REGISTRY_CSV_URL")
-
-    async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+    async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
         r = await client.get(url)
-    if r.status_code != 200:
-        raise RuntimeError(f"Registry CSV download failed: {r.status_code}")
+    r.raise_for_status()
 
     reader = csv.DictReader(io.StringIO(r.text))
     required = {"object_name", "folder_url"}
     if not reader.fieldnames or not required.issubset(set(reader.fieldnames)):
         raise RuntimeError(f"Registry CSV must contain columns: {sorted(required)}")
 
-    items: List[Dict[str, Any]] = []
+    items = []
     for row in reader:
         name = (row.get("object_name") or "").strip()
         folder = (row.get("folder_url") or "").strip()
@@ -47,7 +44,7 @@ async def load_registry() -> List[Dict[str, Any]]:
     return items
 
 
-# --- Яндекс.Диск API ---
+# === Работа с Яндекс.Диском ===
 async def yadisk_request(method: str, path: str, params=None) -> Dict[str, Any]:
     headers = {"Authorization": f"OAuth {_env('YANDEX_DISK_TOKEN')}"}
     async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
@@ -65,7 +62,6 @@ async def list_files_by_public_url(folder_url: str) -> List[Dict[str, Any]]:
 async def download_file_from_public(folder_url: str, file_path: str) -> bytes:
     public_key = folder_url.strip()
     params = {"public_key": public_key, "path": file_path}
-
     async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
         r = await client.get(f"{YANDEX_API}/public/resources/download", params=params)
     r.raise_for_status()
@@ -79,7 +75,7 @@ async def download_file_from_public(folder_url: str, file_path: str) -> bytes:
     return file_response.content
 
 
-# --- Извлечение текста ---
+# === Извлечение текста из файлов ===
 def extract_text_from_pdf(content: bytes) -> str:
     temp_path = "/tmp/temp.pdf"
     with open(temp_path, "wb") as f:
@@ -96,7 +92,7 @@ def extract_text_from_docx(content: bytes) -> str:
     return "\n".join(p.text for p in doc.paragraphs)
 
 
-# --- API ---
+# === API ===
 @app.on_event("startup")
 async def startup():
     global REGISTRY
@@ -115,19 +111,21 @@ async def get_objects():
 
 
 @app.get("/objects/{object_name}/fulltext")
-async def get_fulltext(object_name: str):
-    """Загрузить полный текст всех писем по объекту"""
+async def get_fulltext(object_name: str, limit: int = 5, offset: int = 0):
+    """Загрузить полный текст всех писем по объекту (с постраничной выборкой)"""
     obj = next((o for o in REGISTRY if o["object_name"] == object_name), None)
     if not obj:
         return {"error": "object not found", "object_name": object_name}
 
     folder_url = obj["folder_url"]
     files = await list_files_by_public_url(folder_url)
+    files = [f for f in files if f["name"].lower().endswith((".pdf", ".docx"))]
+
+    total = len(files)
+    files = files[offset:offset + limit]
     results = []
 
     for f in files:
-        if not (f["name"].lower().endswith(".pdf") or f["name"].lower().endswith(".docx")):
-            continue
         try:
             content = await download_file_from_public(folder_url, f["path"])
             text = extract_text_from_pdf(content) if f["name"].lower().endswith(".pdf") else extract_text_from_docx(content)
@@ -139,4 +137,4 @@ async def get_fulltext(object_name: str):
         except Exception as e:
             results.append({"file_name": f["name"], "error": str(e)})
 
-    return {"object_name": object_name, "files": results}
+    return {"object_name": object_name, "total_files": total, "limit": limit, "offset": offset, "files": results}
