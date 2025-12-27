@@ -1,6 +1,7 @@
 import os
 import csv
 import io
+import re
 from typing import List, Dict, Any
 from pathlib import Path
 
@@ -9,7 +10,7 @@ from fastapi import FastAPI
 from PyPDF2 import PdfReader
 import docx
 
-app = FastAPI(title="Buildeco Parser Service", version="0.3.0")
+app = FastAPI(title="Buildeco Parser Service", version="0.3.1")
 
 REGISTRY: List[Dict[str, Any]] = []
 YANDEX_API = "https://cloud-api.yandex.net/v1/disk"
@@ -127,6 +128,41 @@ def extract_text_from_docx(content: bytes) -> str:
     return "\n".join(p.text for p in doc.paragraphs)
 
 
+# === КЛАССИФИКАЦИЯ ===
+def classify_text(text: str) -> Dict[str, Any]:
+    """Определяет направление, тему и риск по тексту письма"""
+    t = text.lower()
+
+    # --- Определение направления ---
+    if re.search(r"\bвх", t):
+        direction = "входящее"
+    elif re.search(r"\bисх", t):
+        direction = "исходящее"
+    elif "уведомление" in t or "получено" in t:
+        direction = "входящее"
+    elif "направляем" in t or "отправлено" in t:
+        direction = "исходящее"
+    else:
+        direction = "неопределено"
+
+    # --- Определение темы ---
+    if any(k in t for k in ["аванс", "оплата", "счет", "к оплате"]):
+        topic = "финансы"
+    elif any(k in t for k in ["готовность", "стройготовность", "работы", "график"]):
+        topic = "ход работ"
+    elif any(k in t for k in ["замечания", "акт", "претензия", "дефект"]):
+        topic = "замечания/качество"
+    elif any(k in t for k in ["согласование", "утверждение", "техно"]):
+        topic = "согласование"
+    else:
+        topic = "прочее"
+
+    # --- Определение риска ---
+    risk = any(k in t for k in ["не можем", "невозможно", "срыв", "штраф", "расторжение"])
+
+    return {"direction": direction, "topic": topic, "risk": bool(risk)}
+
+
 # === ENDPOINTS ===
 @app.on_event("startup")
 async def startup():
@@ -183,32 +219,7 @@ async def get_file_text(object_name: str, name: str):
     else:
         return {"error": "unsupported file type"}
 
-    return {
-        "object_name": object_name,
-        "file_name": name,
-        "text": text[:10000]  # ограничим вывод
-    }
-import re
-
-def classify_text(text: str) -> Dict[str, Any]:
-    """Простая эвристическая классификация письма"""
-    t = text.lower()
-    direction = "входящее" if "вх" in t or "уведомление" in t else "исходящее"
-    topic = None
-    if any(k in t for k in ["аванс", "оплата", "счет", "к оплате"]):
-        topic = "финансы"
-    elif any(k in t for k in ["готовность", "строеготовность", "работы", "график"]):
-        topic = "ход работ"
-    elif any(k in t for k in ["замечания", "акт", "претензия", "дефект"]):
-        topic = "замечания/качество"
-    elif any(k in t for k in ["согласование", "утверждение", "техно"]):
-        topic = "согласование"
-    else:
-        topic = "прочее"
-
-    risk = any(k in t for k in ["не можем", "невозможно", "срыв", "штраф", "расторжение"])
-
-    return {"direction": direction, "topic": topic, "risk": bool(risk)}
+    return {"object_name": object_name, "file_name": name, "text": text[:10000]}
 
 
 @app.get("/objects/{object_name}/analyze")
@@ -240,6 +251,8 @@ async def analyze_file(object_name: str, name: str):
         "analysis": info,
         "preview": text[:800]
     }
+
+
 @app.get("/objects/{object_name}/summary")
 async def summary_object(object_name: str):
     obj = next((o for o in REGISTRY if o["object_name"] == object_name), None)
@@ -265,7 +278,6 @@ async def summary_object(object_name: str):
         except Exception as e:
             analyzed.append({"name": f["name"], "error": str(e)})
 
-    # статистика
     total = len(analyzed)
     incoming = len([x for x in analyzed if x.get("direction") == "входящее"])
     outgoing = len([x for x in analyzed if x.get("direction") == "исходящее"])
