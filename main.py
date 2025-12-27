@@ -6,7 +6,7 @@ from typing import List, Dict, Any
 import httpx
 from fastapi import FastAPI
 
-app = FastAPI(title="Buildeco Parser Service", version="0.1.1")
+app = FastAPI(title="Buildeco Parser Service", version="0.1.2")
 
 REGISTRY: List[Dict[str, Any]] = []
 
@@ -30,4 +30,38 @@ async def load_registry() -> List[Dict[str, Any]]:
     reader = csv.DictReader(io.StringIO(r.text))
 
     required = {"object_name", "folder_url"}
-    if not reader.fieldnames or not requ
+    if (not reader.fieldnames) or (not required.issubset(set(reader.fieldnames))):
+        raise RuntimeError(f"Registry CSV must contain columns: {sorted(required)}")
+
+    items: List[Dict[str, Any]] = []
+    for row in reader:
+        name = (row.get("object_name") or "").strip()
+        folder = (row.get("folder_url") or "").strip()
+        if not name or not folder:
+            continue
+        items.append({"object_name": name, "folder_url": folder})
+
+    return items
+
+
+@app.on_event("startup")
+async def startup():
+    global REGISTRY
+    REGISTRY = await load_registry()
+
+
+@app.get("/health")
+async def health():
+    return {"ok": True, "objects": len(REGISTRY)}
+
+
+@app.get("/objects")
+async def get_objects():
+    return {"items": REGISTRY}
+
+
+@app.post("/reload")
+async def reload_registry():
+    global REGISTRY
+    REGISTRY = await load_registry()
+    return {"ok": True, "objects": len(REGISTRY)}
