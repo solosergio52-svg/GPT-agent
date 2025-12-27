@@ -240,3 +240,43 @@ async def analyze_file(object_name: str, name: str):
         "analysis": info,
         "preview": text[:800]
     }
+@app.get("/objects/{object_name}/summary")
+async def summary_object(object_name: str):
+    obj = next((o for o in REGISTRY if o["object_name"] == object_name), None)
+    if not obj:
+        return {"error": "object not found", "object_name": object_name}
+
+    folder_url = obj["folder_url"]
+    files = await list_files_by_public_url(folder_url)
+    analyzed = []
+    for f in files:
+        if not (f["name"].lower().endswith(".pdf") or f["name"].lower().endswith(".docx")):
+            continue
+        try:
+            content = await download_file_from_public(folder_url, f["path"])
+            if f["name"].lower().endswith(".pdf"):
+                text = extract_text_from_pdf(content)
+            else:
+                text = extract_text_from_docx(content)
+            info = classify_text(text)
+            analyzed.append(
+                {"name": f["name"], "topic": info["topic"], "direction": info["direction"], "risk": info["risk"]}
+            )
+        except Exception as e:
+            analyzed.append({"name": f["name"], "error": str(e)})
+
+    # статистика
+    total = len(analyzed)
+    incoming = len([x for x in analyzed if x.get("direction") == "входящее"])
+    outgoing = len([x for x in analyzed if x.get("direction") == "исходящее"])
+    risks = len([x for x in analyzed if x.get("risk")])
+
+    summary = {
+        "object_name": object_name,
+        "total_files": total,
+        "incoming": incoming,
+        "outgoing": outgoing,
+        "with_risks": risks,
+    }
+
+    return {"summary": summary, "details": analyzed[:10]}
