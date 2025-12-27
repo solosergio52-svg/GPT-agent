@@ -21,10 +21,11 @@ def _env(name: str) -> str:
 async def load_registry() -> List[Dict[str, Any]]:
     url = _env("OBJECTS_REGISTRY_CSV_URL")
 
-    async with httpx.AsyncClient(timeout=20) as client:
-        r = await client.get(url)
-    if r.status_code != 200:
-        raise RuntimeError(f"Registry CSV download failed: {r.status_code}")
+async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
+    r = await client.get(url)
+if r.status_code != 200:
+    raise RuntimeError(f"Registry CSV download failed: {r.status_code}")
+
 
     content = r.text
     reader = csv.DictReader(io.StringIO(content))
