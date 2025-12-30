@@ -5,6 +5,7 @@ from aiogram import Bot, Dispatcher, Router, F
 from aiogram.types import Message
 from aiogram.filters import CommandStart, Command
 from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties  # ✅ добавляем
 from dotenv import load_dotenv
 import openai
 
@@ -13,7 +14,7 @@ import openai
 # ------------------------------------------
 load_dotenv()
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 if not BOT_TOKEN:
@@ -21,11 +22,16 @@ if not BOT_TOKEN:
 if not OPENAI_API_KEY:
     raise ValueError("❌ Не найден OPENAI_API_KEY в .env")
 
-bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
+# ✅ Новая версия инициализации бота (aiogram 3.7+)
+bot = Bot(
+    token=BOT_TOKEN,
+    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+)
 dp = Dispatcher()
 router = Router()
 
 openai.api_key = OPENAI_API_KEY
+
 
 # ------------------------------------------
 # Хэндлеры
