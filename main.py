@@ -1,73 +1,82 @@
 import os
 import logging
-import openai
+from aiohttp import web
 from aiogram import Bot, Dispatcher, types
-from aiogram.filters import CommandStart
-from aiogram.enums import ParseMode
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
+from openai import OpenAI
+from dotenv import load_dotenv
 
-# 🔧 Настройка логов
+# Загружаем переменные из окружения
+load_dotenv()
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL")
+
+# Проверяем, есть ли токен
+if not BOT_TOKEN:
+    raise ValueError("BOT_TOKEN not found. Add it in Render Environment variables.")
+
 logging.basicConfig(level=logging.INFO)
 
-# 🔑 Переменные окружения
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-WORKFLOW_ID = os.getenv("WORKFLOW_ID")
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-
-# ⚙️ Инициализация
-bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
+# Настраиваем Telegram и OpenAI
+bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
+client = OpenAI(api_key=OPENAI_API_KEY)
 
-openai.api_key = OPENAI_API_KEY
 
-# 🟢 /start
-@dp.message(CommandStart())
-async def start_handler(message: types.Message):
-    await message.answer(
-        "👋 Привет! Я корпоративный помощник Buildeco. "
-        "Задай мне вопрос — и я помогу разобраться с внутренними процессами, проектами или документами."
-    )
-
-# 💬 Обработка обычных сообщений
+# Основной обработчик сообщений
 @dp.message()
 async def handle_message(message: types.Message):
     user_text = message.text
-    user_id = message.from_user.id
-    logging.info(f"📩 Сообщение от {user_id}: {user_text}")
+    logging.info(f"Received message: {user_text}")
 
     try:
-        # 🔗 Отправляем запрос в Workflow
-        response = openai.Chat.completions.create(
+        # Отправляем запрос в OpenAI
+        completion = client.chat.completions.create(
             model="gpt-5.2-chat-latest",
             messages=[
-                {"role": "system", "content": "You are Buildeco corporate assistant."},
-                {"role": "user", "content": user_text}
+                {"role": "system", "content": "Ты — корпоративный ассистент компании Buildeco."},
+                {"role": "user", "content": user_text},
             ],
-            extra_body={"workflow_id": WORKFLOW_ID}
+            max_completion_tokens=400,
         )
 
-        reply = response.choices[0].message.content
+        reply = completion.choices[0].message.content
         await message.answer(reply)
 
     except Exception as e:
-        logging.error(f"Ошибка при обращении к OpenAI: {e}")
-        await message.answer("⚠️ Ошибка при обращении к OpenAI API. Попробуй позже.")
+        logging.error(f"OpenAI error: {e}")
+        await message.answer("⚠️ Произошла ошибка при обращении к OpenAI API.")
 
-# 🚀 Запуск
-from aiohttp import web
 
-async def handle(request):
-    return web.Response(text="Bot is running!")
-
+# --- WEBHOOK CONFIG ---
 async def on_startup(app):
-    await bot.delete_webhook(drop_pending_updates=True)
-    await bot.set_webhook(f"{os.getenv('RENDER_EXTERNAL_URL')}/webhook")
+    webhook_url = f"{RENDER_EXTERNAL_URL}/webhook"
+    await bot.set_webhook(webhook_url)
+    logging.info(f"Webhook set to {webhook_url}")
 
-app = web.Application()
-app.router.add_get("/", handle)
-app.router.add_post("/webhook", dp.webhook_handler)
-app.on_startup.append(on_startup)
+
+async def on_shutdown(app):
+    await bot.delete_webhook()
+    logging.info("Webhook deleted.")
+
+
+def main():
+    app = web.Application()
+
+    # Регистрируем webhook
+    SimpleRequestHandler(dispatcher=dp, bot=bot).register(app, path="/webhook")
+
+    # Настраиваем запуск
+    setup_application(app, dp, bot=bot)
+
+    app.on_startup.append(on_startup)
+    app.on_shutdown.append(on_shutdown)
+
+    port = int(os.getenv("PORT", 10000))
+    web.run_app(app, host="0.0.0.0", port=port)
+
 
 if __name__ == "__main__":
-    web.run_app(app, host="0.0.0.0", port=int(os.getenv("PORT", 10000)))
-
+    main()
