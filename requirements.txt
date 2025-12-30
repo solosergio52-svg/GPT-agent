@@ -1,5 +1,5 @@
 aiogram==2.25.1
-aiohttp==3.8.5
+aiohttp>=3.10.0a1
 openai==0.28.1
 python-dotenv==1.0.0
 setuptools>=65.5.0
