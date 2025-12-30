@@ -1,72 +1,59 @@
 import os
+import logging
 import openai
 from aiogram import Bot, Dispatcher, types
-from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
-from aiohttp import web
-from dotenv import load_dotenv
+from aiogram.filters import CommandStart
+from aiogram.enums import ParseMode
+from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
-load_dotenv()
+# 🔧 Настройка логов
+logging.basicConfig(level=logging.INFO)
 
-BOT_TOKEN = os.getenv("TELEGRAM_TOKEN")
+# 🔑 Переменные окружения
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-WEBHOOK_HOST = os.getenv("RENDER_EXTERNAL_URL", "https://gpt-agent-emii.onrender.com")  # Render добавляет эту переменную
-WEBHOOK_PATH = "/webhook"
-WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
+WORKFLOW_ID = os.getenv("WORKFLOW_ID")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-openai.api_key = OPENAI_API_KEY
-bot = Bot(token=BOT_TOKEN)
+# ⚙️ Инициализация
+bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
 dp = Dispatcher()
 
-# Сессии пользователей (память контекста)
-user_sessions = {}
+openai.api_key = OPENAI_API_KEY
 
+# 🟢 /start
+@dp.message(CommandStart())
+async def start_handler(message: types.Message):
+    await message.answer(
+        "👋 Привет! Я корпоративный помощник Buildeco. "
+        "Задай мне вопрос — и я помогу разобраться с внутренними процессами, проектами или документами."
+    )
+
+# 💬 Обработка обычных сообщений
 @dp.message()
 async def handle_message(message: types.Message):
-    user_id = str(message.from_user.id)
-    text = message.text.strip()
-
-    if user_id not in user_sessions:
-        user_sessions[user_id] = [
-            {"role": "system", "content": (
-                "Ты — корпоративный помощник компании Билдэко. "
-                "Отвечай строго по внутренним регламентам, процессам и документам компании."
-            )}
-        ]
-
-    user_sessions[user_id].append({"role": "user", "content": text})
+    user_text = message.text
+    user_id = message.from_user.id
+    logging.info(f"📩 Сообщение от {user_id}: {user_text}")
 
     try:
-        completion = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
-            messages=user_sessions[user_id],
-            temperature=0.2,
+        # 🔗 Отправляем запрос в Workflow
+        response = openai.Chat.completions.create(
+            model="gpt-5.2-chat-latest",
+            messages=[
+                {"role": "system", "content": "You are Buildeco corporate assistant."},
+                {"role": "user", "content": user_text}
+            ],
+            extra_body={"workflow_id": WORKFLOW_ID}
         )
-        reply = completion.choices[0].message["content"]
-        user_sessions[user_id].append({"role": "assistant", "content": reply})
+
+        reply = response.choices[0].message.content
+        await message.answer(reply)
+
     except Exception as e:
-        reply = f"⚠️ Ошибка OpenAI: {e}"
+        logging.error(f"Ошибка при обращении к OpenAI: {e}")
+        await message.answer("⚠️ Ошибка при обращении к OpenAI API. Попробуй позже.")
 
-    await message.answer(reply)
-
-
-async def on_startup(app):
-    await bot.set_webhook(WEBHOOK_URL)
-    print(f"✅ Webhook установлен: {WEBHOOK_URL}")
-
-
-async def on_shutdown(app):
-    await bot.delete_webhook()
-    print("🛑 Webhook удалён.")
-
-
-def main():
-    app = web.Application()
-    SimpleRequestHandler(dispatcher=dp, bot=bot).register(app, path=WEBHOOK_PATH)
-    setup_application(app, dp, bot=bot)
-    app.on_startup.append(on_startup)
-    app.on_shutdown.append(on_shutdown)
-    web.run_app(app, host="0.0.0.0", port=int(os.getenv("PORT", 10000)))
-
-
+# 🚀 Запуск
 if __name__ == "__main__":
-    main()
+    import asyncio
+    asyncio.run(dp.start_polling(bot))
