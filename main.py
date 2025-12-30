@@ -54,6 +54,20 @@ async def handle_message(message: types.Message):
         await message.answer("⚠️ Ошибка при обращении к OpenAI API. Попробуй позже.")
 
 # 🚀 Запуск
+from aiohttp import web
+
+async def handle(request):
+    return web.Response(text="Bot is running!")
+
+async def on_startup(app):
+    await bot.delete_webhook(drop_pending_updates=True)
+    await bot.set_webhook(f"{os.getenv('RENDER_EXTERNAL_URL')}/webhook")
+
+app = web.Application()
+app.router.add_get("/", handle)
+app.router.add_post("/webhook", dp.webhook_handler)
+app.on_startup.append(on_startup)
+
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(dp.start_polling(bot))
+    web.run_app(app, host="0.0.0.0", port=int(os.getenv("PORT", 10000)))
+
