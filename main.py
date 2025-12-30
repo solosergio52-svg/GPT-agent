@@ -43,8 +43,14 @@ async def handle_message(message: types.Message):
         )
 
 
-        reply = completion.choices[0].message.content
-        await message.answer(reply)
+            reply = completion.choices[0].message.get("content") if completion.choices else None
+            
+            if reply and reply.strip():
+                await message.answer(reply)
+            else:
+                logging.error("OpenAI вернул пустой ответ или неизвестный формат.")
+                await message.answer("🤖 Извини, я не получил содержательного ответа от модели.")
+
 
     except Exception as e:
         logging.error(f"OpenAI error: {e}")
