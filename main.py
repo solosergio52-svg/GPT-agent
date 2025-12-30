@@ -92,7 +92,7 @@ class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"✅ Buildeco Bot is running")
+        self.wfile.write("✅ Buildeco Bot is running".encode("utf-8"))
 
 def run_healthcheck_server():
     server = HTTPServer(("0.0.0.0", 10000), HealthHandler)
