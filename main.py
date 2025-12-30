@@ -38,7 +38,7 @@ async def handle_message(message: types.Message):
                 {"role": "system", "content": "Ты — корпоративный ассистент компании Buildeco."},
                 {"role": "user", "content": user_text},
             ],
-            max_completion_tokens=400,
+                max_tokens=400,
         )
 
         reply = completion.choices[0].message.content
