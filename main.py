@@ -85,5 +85,20 @@ async def main():
     dp.include_router(router)
     await dp.start_polling(bot)
 
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"✅ Buildeco Bot is running")
+
+def run_healthcheck_server():
+    server = HTTPServer(("0.0.0.0", 10000), HealthHandler)
+    server.serve_forever()
+
+threading.Thread(target=run_healthcheck_server, daemon=True).start()
+
 if __name__ == "__main__":
     asyncio.run(main())
