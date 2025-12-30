@@ -22,8 +22,7 @@ logging.basicConfig(level=logging.INFO)
 # Настраиваем Telegram и OpenAI
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
-client = OpenAI(api_key=OPENAI_API_KEY)
-
+client = OpenAI(api_key=OPENAI_API_KEY, base_url="https://api.openai.com/v1")
 
 # Основной обработчик сообщений
 @dp.message()
