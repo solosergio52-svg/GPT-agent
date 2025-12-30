@@ -6,67 +6,76 @@ from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_applicati
 from openai import OpenAI
 from dotenv import load_dotenv
 
-# Загружаем переменные из окружения
+# Загружаем переменные из окружения (.env)
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL")
 
-# Проверяем, есть ли токен
+# Проверяем токен
 if not BOT_TOKEN:
-    raise ValueError("BOT_TOKEN not found. Add it in Render Environment variables.")
+    raise ValueError("❌ BOT_TOKEN не найден. Добавь его в Render → Environment Variables.")
+if not OPENAI_API_KEY:
+    raise ValueError("❌ OPENAI_API_KEY не найден. Добавь его в Render → Environment Variables.")
 
+# Логирование
 logging.basicConfig(level=logging.INFO)
 
-# Настраиваем Telegram и OpenAI
+# Инициализация клиентов
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# Основной обработчик сообщений
+
+# --- Основной обработчик сообщений ---
 @dp.message()
 async def handle_message(message: types.Message):
     user_text = message.text
-    logging.info(f"Received message: {user_text}")
+    logging.info(f"📩 Получено сообщение: {user_text}")
 
     try:
-        # Отправляем запрос в OpenAI
+        # Запрос к OpenAI
         completion = client.chat.completions.create(
             model="gpt-5.2-chat-latest",
             messages=[
                 {"role": "system", "content": "Ты — корпоративный ассистент компании Buildeco."},
                 {"role": "user", "content": user_text},
             ],
-            # Поддержка обеих версий SDK
-            extra_body={"max_completion_tokens": 400}
         )
 
-
-            reply = completion.choices[0].message.get("content") if completion.choices else None
-            
-            if reply and reply.strip():
-                await message.answer(reply)
+        # Безопасное получение контента
+        reply = None
+        if completion and completion.choices:
+            message_obj = completion.choices[0].message
+            if isinstance(message_obj, dict):
+                reply = message_obj.get("content")
             else:
-                logging.error("OpenAI вернул пустой ответ или неизвестный формат.")
-                await message.answer("🤖 Извини, я не получил содержательного ответа от модели.")
+                # новый SDK возвращает объект, а не dict
+                reply = getattr(message_obj, "content", None)
 
+        # Проверяем ответ
+        if reply and reply.strip():
+            await message.answer(reply)
+        else:
+            logging.error("⚠️ OpenAI вернул пустой ответ или неизвестный формат.")
+            await message.answer("🤖 Извини, я не получил содержательного ответа от модели.")
 
     except Exception as e:
-        logging.error(f"OpenAI error: {e}")
+        logging.error(f"❌ Ошибка OpenAI: {e}")
         await message.answer("⚠️ Произошла ошибка при обращении к OpenAI API.")
 
 
-# --- WEBHOOK CONFIG ---
+# --- Настройка Webhook ---
 async def on_startup(app):
     webhook_url = f"{RENDER_EXTERNAL_URL}/webhook"
     await bot.set_webhook(webhook_url)
-    logging.info(f"Webhook set to {webhook_url}")
+    logging.info(f"✅ Webhook установлен: {webhook_url}")
 
 
 async def on_shutdown(app):
     await bot.delete_webhook()
-    logging.info("Webhook deleted.")
+    logging.info("🧹 Webhook удалён.")
 
 
 def main():
@@ -74,10 +83,9 @@ def main():
 
     # Регистрируем webhook
     SimpleRequestHandler(dispatcher=dp, bot=bot).register(app, path="/webhook")
-
-    # Настраиваем запуск
     setup_application(app, dp, bot=bot)
 
+    # Подписываемся на события
     app.on_startup.append(on_startup)
     app.on_shutdown.append(on_shutdown)
 
