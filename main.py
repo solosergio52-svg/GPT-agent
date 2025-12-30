@@ -1,104 +1,72 @@
-import asyncio
-import logging
 import os
-from aiogram import Bot, Dispatcher, Router, F
-from aiogram.types import Message
-from aiogram.filters import CommandStart, Command
-from aiogram.enums import ParseMode
-from aiogram.client.default import DefaultBotProperties  # ✅ добавляем
-from dotenv import load_dotenv
 import openai
+from aiogram import Bot, Dispatcher, types
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
+from aiohttp import web
+from dotenv import load_dotenv
 
-# ------------------------------------------
-# Инициализация
-# ------------------------------------------
 load_dotenv()
 
-BOT_TOKEN = os.getenv("BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
+BOT_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-if not BOT_TOKEN:
-    raise ValueError("❌ Не найден BOT_TOKEN в .env")
-if not OPENAI_API_KEY:
-    raise ValueError("❌ Не найден OPENAI_API_KEY в .env")
-
-# ✅ Новая версия инициализации бота (aiogram 3.7+)
-bot = Bot(
-    token=BOT_TOKEN,
-    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
-)
-dp = Dispatcher()
-router = Router()
+WEBHOOK_HOST = os.getenv("RENDER_EXTERNAL_URL", "https://gpt-agent-emii.onrender.com")  # Render добавляет эту переменную
+WEBHOOK_PATH = "/webhook"
+WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
 openai.api_key = OPENAI_API_KEY
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher()
 
+# Сессии пользователей (память контекста)
+user_sessions = {}
 
-# ------------------------------------------
-# Хэндлеры
-# ------------------------------------------
+@dp.message()
+async def handle_message(message: types.Message):
+    user_id = str(message.from_user.id)
+    text = message.text.strip()
 
-@router.message(CommandStart())
-async def cmd_start(message: Message):
-    await message.answer(
-        "👋 Привет! Я бот компании Билдэко.\n"
-        "Работаю на aiogram 3 и GPT-5.\n"
-        "Задай вопрос или введи команду /help."
-    )
+    if user_id not in user_sessions:
+        user_sessions[user_id] = [
+            {"role": "system", "content": (
+                "Ты — корпоративный помощник компании Билдэко. "
+                "Отвечай строго по внутренним регламентам, процессам и документам компании."
+            )}
+        ]
 
-@router.message(Command("help"))
-async def cmd_help(message: Message):
-    await message.answer(
-        "Доступные команды:\n"
-        "/start — приветствие\n"
-        "/help — помощь\n"
-        "Просто напиши вопрос, и я отвечу через GPT."
-    )
-
-@router.message(F.text)
-async def handle_text(message: Message):
-    user_text = message.text.strip()
-    await message.answer("⌛ Думаю...")
+    user_sessions[user_id].append({"role": "user", "content": text})
 
     try:
-        # Асинхронный запрос к OpenAI
         completion = openai.ChatCompletion.create(
-            model="gpt-5",  # для GPT-5 (если доступна) или "gpt-4o"
-            messages=[
-                {"role": "system", "content": "Ты — ассистент компании Билдэко."},
-                {"role": "user", "content": user_text},
-            ],
-            temperature=0.6,
-            max_tokens=800,
+            model="gpt-4o-mini",
+            messages=user_sessions[user_id],
+            temperature=0.2,
         )
-        reply = completion.choices[0].message.content.strip()
-        await message.answer(reply)
-
+        reply = completion.choices[0].message["content"]
+        user_sessions[user_id].append({"role": "assistant", "content": reply})
     except Exception as e:
-        logging.error(f"OpenAI error: {e}")
-        await message.answer("⚠️ Ошибка при обращении к OpenAI API.")
+        reply = f"⚠️ Ошибка OpenAI: {e}"
 
-# ------------------------------------------
-# Основной запуск
-# ------------------------------------------
-async def main():
-    logging.basicConfig(level=logging.INFO)
-    dp.include_router(router)
-    await dp.start_polling(bot)
+    await message.answer(reply)
 
-import threading
-from http.server import BaseHTTPRequestHandler, HTTPServer
 
-class HealthHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write("✅ Buildeco Bot is running".encode("utf-8"))
+async def on_startup(app):
+    await bot.set_webhook(WEBHOOK_URL)
+    print(f"✅ Webhook установлен: {WEBHOOK_URL}")
 
-def run_healthcheck_server():
-    server = HTTPServer(("0.0.0.0", 10000), HealthHandler)
-    server.serve_forever()
 
-threading.Thread(target=run_healthcheck_server, daemon=True).start()
+async def on_shutdown(app):
+    await bot.delete_webhook()
+    print("🛑 Webhook удалён.")
+
+
+def main():
+    app = web.Application()
+    SimpleRequestHandler(dispatcher=dp, bot=bot).register(app, path=WEBHOOK_PATH)
+    setup_application(app, dp, bot=bot)
+    app.on_startup.append(on_startup)
+    app.on_shutdown.append(on_shutdown)
+    web.run_app(app, host="0.0.0.0", port=int(os.getenv("PORT", 10000)))
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
