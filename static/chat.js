@@ -1,44 +1,80 @@
 document.addEventListener("DOMContentLoaded", () => {
   console.log("✅ chat.js загружен и DOM готов");
 
-  let container = document.getElementById("buildeco-chat");
-
-  // если Тильда не сохранила блок — создаём его вручную
+  const container = document.getElementById("buildeco-chat");
   if (!container) {
-    container = document.createElement("div");
-    container.id = "buildeco-chat";
-    document.body.appendChild(container);
-    console.warn("⚠️ #buildeco-chat не найден — создан новый контейнер вручную");
+    console.error("❌ Не найден элемент #buildeco-chat");
+    return;
   }
 
-  // === создаём интерфейс ===
+  // Создаём интерфейс чата
   container.innerHTML = `
     <style>
       .chat-wrapper {
-        display: flex; flex-direction: column; height: 90vh;
-        max-width: 800px; margin: 40px auto;
-        border: 1px solid #ddd; border-radius: 12px;
-        background: #fafafa; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        display: flex;
+        flex-direction: column;
+        height: 90vh;
+        max-width: 800px;
+        margin: 40px auto;
+        border: 1px solid #ddd;
+        border-radius: 12px;
+        background: #fafafa;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         font-family: Inter, sans-serif;
       }
       .chat-messages {
-        flex: 1; padding: 20px; overflow-y: auto;
-        font-size: 15px; line-height: 1.5;
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+        font-size: 15px;
+        line-height: 1.5;
       }
-      .chat-message.user { text-align: right; color: #fff; background: #007aff; padding: 10px 14px; border-radius: 10px; display: inline-block; margin: 8px 0; }
-      .chat-message.bot { text-align: left; color: #222; background: #e9ecef; padding: 10px 14px; border-radius: 10px; display: inline-block; margin: 8px 0; }
+      .chat-message.user {
+        text-align: right;
+        color: #fff;
+        background: #007aff;
+        padding: 10px 14px;
+        border-radius: 10px;
+        display: inline-block;
+        margin: 8px 0;
+      }
+      .chat-message.bot {
+        text-align: left;
+        color: #222;
+        background: #e9ecef;
+        padding: 10px 14px;
+        border-radius: 10px;
+        display: inline-block;
+        margin: 8px 0;
+      }
       .chat-input {
-        display: flex; padding: 12px; border-top: 1px solid #ddd; background: #fff;
+        display: flex;
+        padding: 12px;
+        border-top: 1px solid #ddd;
+        background: #fff;
       }
       .chat-input textarea {
-        flex: 1; resize: none; height: 50px; padding: 10px;
-        border: 1px solid #ccc; border-radius: 8px; font-size: 14px;
+        flex: 1;
+        resize: none;
+        height: 50px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        font-size: 14px;
       }
       .chat-input button {
-        margin-left: 10px; padding: 0 20px; background: #10a37f; border: none;
-        border-radius: 8px; color: #fff; font-size: 15px; cursor: pointer;
+        margin-left: 10px;
+        padding: 0 20px;
+        background: #10a37f;
+        border: none;
+        border-radius: 8px;
+        color: #fff;
+        font-size: 15px;
+        cursor: pointer;
       }
-      .chat-input button:hover { background: #0e8b6e; }
+      .chat-input button:hover {
+        background: #0e8b6e;
+      }
     </style>
 
     <div class="chat-wrapper">
@@ -52,7 +88,7 @@ document.addEventListener("DOMContentLoaded", () => {
     </div>
   `;
 
-  // === привязка событий ===
+  // Подключаем обработчики
   const sendBtn = document.getElementById("sendBtn");
   const chatInput = document.getElementById("chatInput");
   const chatMessages = document.getElementById("chatMessages");
