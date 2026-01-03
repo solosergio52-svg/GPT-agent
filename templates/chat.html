@@ -1,32 +1,18 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
   <title>Buildeco Assistant</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='chat.css') }}" />
+  <link rel="stylesheet" href="/static/chat.css">
 </head>
 <body>
-  <div class="layout">
-    <aside class="sidebar">
-      <div class="logo">Buildeco Assistant</div>
-      <div class="chat-list">
-        <button id="newChat" class="new-chat">+ Новый чат</button>
-      </div>
-    </aside>
-
-    <main class="chat">
-      <div id="messages" class="messages">
-        <div class="message bot">👋 Привет! Я ассистент компании Buildeco. Задайте вопрос.</div>
-      </div>
-
-      <form id="chatForm" class="input-area">
-        <textarea id="input" placeholder="Введите сообщение..." rows="1"></textarea>
-        <button type="submit" id="send">▲</button>
-      </form>
-    </main>
+  <div id="chatbox">
+    <div id="messages"></div>
+    <div class="input-row">
+      <textarea id="input" placeholder="Введите сообщение..."></textarea>
+      <button id="send">Отправить</button>
+    </div>
   </div>
-
-  <script src="{{ url_for('static', filename='chat.js') }}"></script>
+  <script src="/static/chat.js"></script>
 </body>
 </html>
