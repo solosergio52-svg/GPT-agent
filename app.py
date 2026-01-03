@@ -10,8 +10,8 @@ ASSISTANT_ID = "asst_buildeco"  # вставь ID своего ассистен�
 
 # 👥 Пример сотрудников (для теста)
 USERS = {
-    "ivan.petrov@bldco.ru": {"password": "1234", "role": "Прораб"},
-    "olga.lazareva@bldco.ru": {"password": "5678", "role": "Финансовый директор"}
+    "79023003355@yandex.ru": {"password": "1234", "role": "Директор"},
+    "fin@bldco.ru": {"password": "5678", "role": "Финансовый директор"}
 }
 
 @app.after_request
