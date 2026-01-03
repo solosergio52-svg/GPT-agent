@@ -1,13 +1,17 @@
 document.addEventListener("DOMContentLoaded", () => {
   console.log("✅ chat.js загружен и DOM готов");
 
-  const container = document.getElementById("buildeco-chat");
+  let container = document.getElementById("buildeco-chat");
+
+  // если Тильда не сохранила блок — создаём его вручную
   if (!container) {
-    console.error("❌ Не найден элемент #buildeco-chat");
-    return;
+    container = document.createElement("div");
+    container.id = "buildeco-chat";
+    document.body.appendChild(container);
+    console.warn("⚠️ #buildeco-chat не найден — создан новый контейнер вручную");
   }
 
-  // === 1. Создаем базовую структуру чата ===
+  // === создаём интерфейс ===
   container.innerHTML = `
     <style>
       .chat-wrapper {
@@ -48,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
     </div>
   `;
 
-  // === 2. Подключаем обработчики ===
+  // === привязка событий ===
   const sendBtn = document.getElementById("sendBtn");
   const chatInput = document.getElementById("chatInput");
   const chatMessages = document.getElementById("chatMessages");
