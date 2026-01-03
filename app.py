@@ -4,6 +4,7 @@ from openai import OpenAI
 
 # === Настройки приложения ===
 app = Flask(__name__)
+app.config['JSON_AS_ASCII'] = False
 SECRET_KEY = os.getenv("JWT_SECRET", "supersecret")  # секрет для JWT
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")         # ключ OpenAI
 client = OpenAI(api_key=OPENAI_API_KEY)
