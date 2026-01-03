@@ -12,7 +12,7 @@ SECRET = os.getenv("JWT_SECRET", "supersecret")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Твой ассистент с платформы OpenAI
-ASSISTANT_ID = "asst_Qt9Uh3tqhqi7ptyi7ZCuiNWe"
+ASSISTANT_ID = "asst_OuGsIfNrsZ37M9K9OEensYaL"
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
