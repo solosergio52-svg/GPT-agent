@@ -16,9 +16,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const text = input.value.trim();
     if (!text) return;
 
-    appendMessage(text, "user");
+    addMessage(text, "user");
+    addMessage("...", "bot");
     input.value = "";
-    appendMessage("...", "bot");
 
     try {
       const res = await fetch(`${API_URL}/ask`, {
@@ -32,22 +32,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const data = await res.json();
       chatBox.lastChild.remove();
-      appendMessage(data.answer || "⚠️ Ошибка ответа", "bot");
+      addMessage(data.answer || "⚠️ Ошибка ответа", "bot");
     } catch (err) {
       chatBox.lastChild.remove();
-      appendMessage("⚠️ Ошибка соединения с сервером", "bot");
+      addMessage("⚠️ Ошибка соединения с сервером", "bot");
     }
   });
 
-  document.getElementById("newChat").addEventListener("click", () => {
-    chatBox.innerHTML = `<div class='message bot'>🆕 Новый чат начат. Задайте вопрос.</div>`;
-  });
-
-  function appendMessage(text, sender) {
+  function addMessage(text, sender) {
     const div = document.createElement("div");
     div.className = `message ${sender}`;
     div.textContent = text;
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
   }
+
+  document.getElementById("newChat").addEventListener("click", () => {
+    chatBox.innerHTML = `<div class='message bot'>🆕 Новый чат начат.</div>`;
+  });
 });
