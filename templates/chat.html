@@ -6,13 +6,22 @@
   <link rel="stylesheet" href="/static/chat.css">
 </head>
 <body>
-  <div id="chatbox">
+  <div id="loginBox" class="login-box" style="display:none;">
+    <h3>Вход для сотрудников</h3>
+    <input type="text" id="email" placeholder="Email"><br>
+    <input type="password" id="password" placeholder="Пароль"><br>
+    <button onclick="login()">Войти</button>
+    <div id="loginMsg" style="margin-top:10px;color:red;"></div>
+  </div>
+
+  <div id="chatbox" style="display:none;">
     <div id="messages"></div>
     <div class="input-row">
       <textarea id="input" placeholder="Введите сообщение..."></textarea>
       <button id="send">Отправить</button>
     </div>
   </div>
+
   <script src="/static/chat.js"></script>
 </body>
 </html>
