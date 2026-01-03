@@ -1,164 +1,66 @@
-/* === Общие стили === */
 body {
+  font-family: "Inter", sans-serif;
+  background: #f7f8fa;
   margin: 0;
-  font-family: "Inter", "Segoe UI", Roboto, sans-serif;
-  background: #343541;
-  color: #ececf1;
+  display: flex;
+  height: 100vh;
+  justify-content: center;
+  align-items: center;
+}
+#chatbox {
+  width: 100%;
+  max-width: 800px;
+  height: 90vh;
   display: flex;
   flex-direction: column;
-  height: 100vh;
-}
-
-/* === Основная сетка === */
-.layout {
-  display: flex;
-  flex: 1;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  background: white;
   overflow: hidden;
 }
-
-/* === Sidebar === */
-.sidebar {
-  width: 260px;
-  background: #202123;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.sidebar .logo {
-  font-weight: 600;
-  padding: 20px;
-  text-align: center;
-  border-bottom: 1px solid #2f2f30;
-  color: #fff;
-}
-
-.chat-list {
+#messages {
   flex: 1;
-  padding: 10px;
-}
-
-.new-chat {
-  background: #343541;
-  color: #fff;
-  border: none;
-  width: 100%;
-  padding: 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  margin-bottom: 10px;
-}
-
-.new-chat:hover {
-  background: #40414f;
-}
-
-.chat-item {
-  background: transparent;
-  color: #d1d5db;
-  padding: 8px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.chat-item:hover,
-.chat-item.active {
-  background: #2f2f30;
-  color: #fff;
-}
-
-.sidebar footer {
-  padding: 10px;
-  text-align: center;
-  font-size: 12px;
-  color: #888;
-}
-
-/* === Основная область === */
-.chat {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: #343541;
-}
-
-.messages {
-  flex: 1;
+  padding: 15px;
   overflow-y: auto;
-  padding: 20px 40px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
 }
-
 .message {
-  max-width: 80%;
-  padding: 12px 16px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
   border-radius: 10px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  animation: fadeIn 0.3s ease;
+  max-width: 80%;
 }
-
 .user {
   background: #007aff;
+  color: white;
   align-self: flex-end;
-  color: #fff;
 }
-
 .bot {
-  background: #444654;
+  background: #e9e9ed;
+  color: black;
   align-self: flex-start;
 }
-
-/* === Поле ввода === */
-.input-area {
+.input-row {
   display: flex;
-  padding: 16px 24px;
-  background: #40414f;
-  border-top: 1px solid #2f2f30;
+  padding: 10px;
+  border-top: 1px solid #ddd;
 }
-
 textarea {
   flex: 1;
   resize: none;
-  border: none;
-  border-radius: 6px;
-  padding: 12px;
-  background: #40414f;
-  color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 8px;
   font-size: 15px;
 }
-
-textarea:focus {
-  outline: none;
-}
-
-button#send {
-  background: #19c37d;
-  border: none;
+button {
+  background: #10a37f;
   color: white;
-  font-size: 16px;
-  border-radius: 6px;
-  width: 40px;
+  border: none;
+  border-radius: 8px;
+  padding: 0 16px;
+  margin-left: 8px;
   cursor: pointer;
-  margin-left: 10px;
 }
-
-button#send:hover {
-  background: #13a06f;
-}
-
-/* === Анимации === */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* === Адаптив для мобильных === */
-@media (max-width: 768px) {
-  .sidebar { display: none; }
-  .chat { flex: 1; }
-  .messages { padding: 16px; }
+button:hover {
+  background: #0e8b6e;
 }
