@@ -64,3 +64,19 @@ button {
 button:hover {
   background: #0e8b6e;
 }
+
+/* login */
+.login-box {
+  width: 300px;
+  margin: 0 auto;
+  padding: 30px;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  background: #fff;
+  text-align: center;
+}
+input {
+  width: 90%;
+  margin: 8px 0;
+  padding: 8px;
+}
