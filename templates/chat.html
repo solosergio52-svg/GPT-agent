@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buildeco Assistant</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='chat.css') }}">
+</head>
+<body>
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="logo">Buildeco Assistant</div>
+      <nav class="chat-list">
+        <button class="new-chat" id="newChat">+ Новый чат</button>
+        <ul id="chats">
+          <li class="chat-item active">Текущий диалог</li>
+        </ul>
+      </nav>
+      <footer>© 2026 Buildeco</footer>
+    </aside>
+
+    <!-- Chat area -->
+    <main class="chat">
+      <div id="messages" class="messages">
+        <div class="message bot">👋 Привет! Я ассистент компании Buildeco. Задайте вопрос.</div>
+      </div>
+      <form id="chatForm" class="input-area">
+        <textarea id="input" placeholder="Введите сообщение..." rows="1"></textarea>
+        <button type="submit" id="send">▲</button>
+      </form>
+    </main>
+  </div>
+
+  <script src="{{ url_for('static', filename='chat.js') }}"></script>
+</body>
+</html>
