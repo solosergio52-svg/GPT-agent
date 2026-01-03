@@ -1,3 +1,4 @@
 Flask
-PyJWT
+Flask-Cors
 openai
+PyJWT
